@@ -3,13 +3,19 @@ const { handleUserEmailSignup, handleEmailOtpVerification, handleResendOtp, hand
 const router = express.Router();
 
 // All `register` endpoints
-router.post('/register/verify/email', handleUserEmailSignup);
-router.post('/register/verify/emailOtp', handleEmailOtpVerification);
-router.post('/register/resendOtp', handleResendOtp);
-router.post('/register', handleUserSignup);
+router.route('/register/verify/email')
+  .post(handleUserEmailSignup);
+router.route('/register/verify/emailOtp')
+  .post(handleEmailOtpVerification);
+router.route('/register/resendOtp')
+  .post(handleResendOtp);
+router.route('/register')
+  .post(handleUserSignup);
 
 // All `login` endpoints
-router.post('/login', handleUserLogin);
-router.post('/login/passwordReset', handlePasswordReset);
+router.route('/login')
+  .post(handleUserLogin);
+router.route('/login/passwordReset')
+  .post(handlePasswordReset);
 
 module.exports = router;
