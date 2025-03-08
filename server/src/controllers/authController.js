@@ -3,6 +3,7 @@ const prisma = require('../models');
 const config = require('../config/env');
 const nodemailer = require("nodemailer");
 const bcrypt = require('bcrypt');
+const { generateJwtToken } = require('./jwt');
 
 // Email Validation Utility
 const isValidEmail = async (email) => {
@@ -178,7 +179,7 @@ const handleResendOtp = async (req, res) => {
     // Error code 500 - Server side error
     res.status(500).json({
       error: "Failed to resend OTP",
-      details: error.message 
+      details: error.message
     })
   }
 };
@@ -186,6 +187,8 @@ const handleResendOtp = async (req, res) => {
 // TODO: Implement the User Signup function
 // Password and Confirm Password validation done by the Frontend
 // Add new User to the database
+// Hash the password before storing
+// Generate JWT token and return it along with the response
 const handleUserSignup = async (req, res) => {
   try {
     const { firstName, lastName, email, password } = req.body;
@@ -194,16 +197,31 @@ const handleUserSignup = async (req, res) => {
     const hashedPassword = await bcrypt.hash(password, 10);
     const newUserDetails = await prisma.user.create({
       data:
-        {
-          firstName,
-          lastName,
-          email,
-          password: hashedPassword
-        }
+      {
+        firstName,
+        lastName,
+        email,
+        password: hashedPassword
+      }
+    });
+
+    // Generate JWT token without the password field
+    const { password: _, ...userWithoutPassword } = newUserDetails;
+    const token = generateJwtToken(userWithoutPassword);
+    console.log(`Token generated: ${token}`);
+
+    // Set the token in a cookie
+    res.cookie("uid", token, {
+      httpOnly: true,
+      secure: true,
+      expires: new Date(Date.now() + 60 * 10 * 1000) // 10 mins
     });
 
     // Return success response code 201 - Rsource Created
-    res.status(201).json(newUserDetails);
+    res.status(201).json({
+      user: userWithoutPassword,
+      token: token,
+    });
 
   } catch (error) {
     // Error code 500 - Server side error
@@ -247,13 +265,26 @@ const handleUserLogin = async (req, res) => {
     }
 
     // Remove password from the handleUserLogin response
+    // Generate JWT token without the password field
     const { password: _, ...userWithoutPassword } = user;
     console.log("user is", user);
     console.log("user without password is", userWithoutPassword);
+
+    const token = generateJwtToken(userWithoutPassword);
+    console.log(`Token generated: ${token}`);
+
+    // Set the token in a cookie
+    res.cookie("uid", token, {
+      httpOnly: true,
+      secure: true,
+      expires: new Date(Date.now() + 60 * 10 * 1000) // 10 mins
+    });
+
     // Return success response code - 200
     return res.status(200).json({
       message: "Login successful",
-      user: userWithoutPassword
+      user: userWithoutPassword,
+      token: token,
     });
 
   } catch (error) {
@@ -293,8 +324,8 @@ const handlePasswordReset = async (req, res) => {
     // Update user's password in the database
     await prisma.User.update({
       where: { email },
-      data: { 
-        password: hashedNewPassword 
+      data: {
+        password: hashedNewPassword
       }
     });
 
